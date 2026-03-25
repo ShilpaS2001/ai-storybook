@@ -1,0 +1,6 @@
+streamlit
+google-generativeai
+huggingface_hub
+reportlab
+Pillow
+requests

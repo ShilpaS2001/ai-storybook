@@ -47,6 +47,7 @@ uploaded_file = st.file_uploader(
     type=["jpg", "png", "jpeg"]
 )
 
+
 # =========================
 # 5. IF IMAGE EXISTS
 # =========================
@@ -60,45 +61,40 @@ if uploaded_file:
     # =========================
     if st.button("✨ Generate My Storybook"):
 
-        with st.status("Magic in progress...", expanded=True) as status:
-
-            st.write("🔍 Analyzing toy and writing story...")
-
-            # Generate story + images
+        with st.spinner("🔍 Creating your storybook..."):
             st.session_state.book_data = generate_full_book(theme, uploaded_file)
 
-            st.write("🎨 Painting the illustrations...")
+        st.success("✅ Book Ready!")
+        st.balloons()
 
-            # =========================
-            # DISPLAY BOOK PREVIEW
-            # =========================
-            for i, page in enumerate(st.session_state.book_data):
 
-                st.divider()
+    # =========================
+    # DISPLAY BOOK
+    # =========================
+    if st.session_state.book_data:
 
-                # ---------- COVER ----------
-                if page.get("type") == "cover":
+        for i, page in enumerate(st.session_state.book_data):
 
-                    st.markdown("## 📘 Book Cover")
+            st.divider()
 
-                    if page.get("image"):
-                        st.image(page["image"], width="stretch")
+            # ---------- COVER ----------
+            if page.get("type") == "cover":
 
-                    st.markdown(f"### {page.get('title', 'Story Book')}")
-
-                    continue
-
-                # ---------- STORY PAGES ----------
-                st.markdown(f"### Page {i}")
+                st.markdown("## 📘 Book Cover")
 
                 if page.get("image"):
-                    st.image(page["image"], width="stretch")
+                    st.image(page["image"], use_container_width=True)
 
-                st.write(page.get("text", ""))
+                st.markdown(f"### {page.get('title', 'Story Book')}")
+                continue
 
-            status.update(label="✅ Book Ready!", state="complete")
+            # ---------- STORY PAGES ----------
+            st.markdown(f"### Page {i}")
 
-        st.balloons()
+            if page.get("image"):
+                st.image(page["image"], use_container_width=True)
+
+            st.write(page.get("text", ""))
 
 
     # =========================
@@ -110,7 +106,6 @@ if uploaded_file:
         st.success("Your book is generated! You can download it below.")
 
         with st.spinner("Finalizing PDF file..."):
-
             pdf_bytes = create_pdf_buffer(st.session_state.book_data)
 
         if pdf_bytes:
@@ -121,6 +116,7 @@ if uploaded_file:
                 mime="application/pdf",
                 key="download_btn"
             )
+
 
 # =========================
 # 6. RESET IF IMAGE REMOVED

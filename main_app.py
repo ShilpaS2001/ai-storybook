@@ -2,7 +2,7 @@ import os
 import time
 import PIL.Image
 from huggingface_hub import InferenceClient
-from google import genai
+import google.generativeai as genai
 from google.genai.types import HttpOptions
 import base64
 import io

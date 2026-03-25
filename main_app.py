@@ -3,7 +3,6 @@ import time
 import PIL.Image
 from huggingface_hub import InferenceClient
 import google.generativeai as genai
-from google.genai.types import HttpOptions
 import base64
 import io
 import streamlit as st
@@ -14,25 +13,19 @@ import streamlit as st
 GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
-# Force v1beta (required for Gemini 2.x models)
-client = genai.Client(
-    api_key=GOOGLE_API_KEY,
-    http_options=HttpOptions(api_version="v1beta")
-)
+# Configure Gemini
+genai.configure(api_key=GOOGLE_API_KEY)
 
+# Gemini model
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# HuggingFace image model
 hf_client = InferenceClient(
     "black-forest-labs/FLUX.1-schnell",
     token=HF_TOKEN
 )
 
-# =====================
-# 2. MODEL DEFINITIONS (MATCH YOUR ACCOUNT)
-# =====================
-VISION_MODEL = "models/gemini-2.5-flash"
-STORY_MODEL = "models/gemini-flash-latest"
-
 print("🔥 RUNNING FILE:", __file__)
-print("🔥 FORCED STORY MODEL: models/gemini-pro-latest")
 
 # =====================
 # 3. MAIN FUNCTION
@@ -45,37 +38,18 @@ def generate_full_book(theme, uploaded_image=None):
     # PHASE 1: VISION
     # =====================
     if uploaded_image:
-        print(f"🔍 Step 1: Analyzing toy photo with {VISION_MODEL}...")
+        print("🔍 Step 1: Analyzing toy photo...")
         try:
             img = PIL.Image.open(uploaded_image).convert("RGB")
             img.thumbnail((1024, 1024))
 
-            img_buffer = io.BytesIO()
-            img.save(img_buffer, format="JPEG")
+            response = model.generate_content([
+                "Describe this toy briefly for a children's story. "
+                "Include colors, material, and give it a cute name.",
+                img
+            ])
 
-            vision_response = client.models.generate_content(
-                model=VISION_MODEL,
-                contents=[
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": "Describe this toy briefly for a children's story. "
-                                        "Include colors, material, and give it a cute name."
-                            },
-
-                            {
-                                "inline_data": {
-                                    "mime_type": "image/jpeg",
-                                    "data": base64.b64encode(img_buffer.getvalue()).decode("utf-8")
-                                }
-                            }
-                        ]
-                    }
-                ]
-            )
-
-            character_dossier = vision_response.text
+            character_dossier = response.text
             print("✅ Character Created")
 
         except Exception as e:
@@ -115,10 +89,7 @@ def generate_full_book(theme, uploaded_image=None):
     """
 
     try:
-        story_response = client.models.generate_content(
-            model="models/gemini-flash-latest",
-            contents=prompt
-        )
+        story_response = model.generate_content(prompt)
         story_text = story_response.text
 
     except Exception as e:
@@ -134,15 +105,14 @@ def generate_full_book(theme, uploaded_image=None):
         print(f"🎨 Step 3: Painting page {i+1}...")
         try:
             parts = line.split("|")
-            txt = parts[0].split("Text:")[-1].replace("[", "").replace("]", "").strip()
-            prmt = parts[1].split("Prompt:")[-1].replace("[", "").replace("]", "").strip()
+            txt = parts[0].split("Text:")[-1].strip()
+            prmt = parts[1].split("Prompt:")[-1].strip()
 
             image = hf_client.text_to_image(
-            f"Children's book illustration, watercolor style, soft pastel colors, "
-            f"rounded shapes, cute and friendly look. "
-            f"Main character: {character_dossier}. Scene: {prmt}"
-        )
-
+                f"Children's book illustration, watercolor style, soft pastel colors, "
+                f"rounded shapes, cute and friendly look. "
+                f"Main character: {character_dossier}. Scene: {prmt}"
+            )
 
             img_buffer = io.BytesIO()
             image.save(img_buffer, format="PNG")
@@ -178,11 +148,10 @@ def generate_full_book(theme, uploaded_image=None):
         cover_buffer.seek(0)
 
         book_results.insert(0, {
-        "title": theme,
-        "image": cover_buffer,
-        "type": "cover"
-    })
-
+            "title": theme,
+            "image": cover_buffer,
+            "type": "cover"
+        })
 
         print("✅ Front Cover Ready")
 
